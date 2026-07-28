@@ -153,7 +153,7 @@ if run_button and video_path is not None:
         st.metric(
         label="🗣️ Communication Score",
         value=f"{int(comm_score)} / 100",
-        delta="Proficient" if comm_score >= 75 else "Moderate",
+        delta="Proficient" if comm_score >= 65 else "Need to improve",
         delta_color="off"  # Removes the confusing green up-arrow
      )
 
