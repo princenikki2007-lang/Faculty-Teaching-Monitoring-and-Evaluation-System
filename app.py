@@ -131,29 +131,40 @@ if run_button and video_path is not None:
         )
 
     with col2:
-        tech_score = float(data.get('technical_relevance_score', 0))
-        st.metric(
+    # Safely get the score
+     raw_tech = float(data.get('technical_relevance_score', 0))
+    
+    # If the LLM outputs a number out of 10 (like 8.0), multiply it by 10 to make it 80.
+     tech_score = raw_tech * 10 if raw_tech <= 10 else raw_tech
+    
+     st.metric(
         label="🎯 Technical Relevance Score",
         value=f"{int(tech_score)} / 100",
-        delta="Very High" if tech_score >= 80 else "Needs Review"
-    )
+        delta="Very High" if tech_score >= 80 else "Needs Review",
+        delta_color="off"  # Removes the confusing green up-arrow
+     )
 
-    with col3:
-        comm_score = float(data.get('english_comm_score', 0))
+     with col3: 
+        raw_comm = float(data.get('english_comm_score', 0))
+    
+        # Scale out of 10 up to 100
+        comm_score = raw_comm * 10 if raw_comm <= 10 else raw_comm
+    
         st.metric(
         label="🗣️ Communication Score",
         value=f"{int(comm_score)} / 100",
-        delta="Proficient" if comm_score >= 75 else "Moderate"
-    )
+        delta="Proficient" if comm_score >= 75 else "Moderate",
+        delta_color="off"  # Removes the confusing green up-arrow
+     )
 
-    with col4:
+     with col4:
         st.metric(
             label="🖼️ Board Snapshots Captured",
             value=f"{data['boards_count']} Snapshots",
             delta="Active Board Use" if data['boards_count'] > 0 else "No Board Content"
         )
 
-    st.divider()
+     st.divider()
 
     # --- TWO COLUMN DETAILED BREAKDOWN ---
     col_left, col_right = st.columns(2)
