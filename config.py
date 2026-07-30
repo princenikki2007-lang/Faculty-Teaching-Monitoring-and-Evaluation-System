@@ -1,20 +1,22 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# Project Paths
+# --- BASE DIRECTORIES ---
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
+
+# Subdirectories for temporary uploads and extracted board images
 UPLOAD_DIR = DATA_DIR / "uploads"
-OUTPUT_DIR = DATA_DIR / "outputs"
+BOARDS_DIR = DATA_DIR / "extracted_boards"
 
+# Ensure required directories exist automatically on startup
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+BOARDS_DIR.mkdir(parents=True, exist_ok=True)
 
-# API Keys
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# --- MODEL CONFIGURATIONS ---
+# Options: "tiny", "base", "small", "medium", "large"
+# "small" offers the best speed/accuracy balance on standard local GPU/CPU
+WHISPER_MODEL_NAME = "small"
 
-# Model Configurations
-WHISPER_MODEL_NAME = "base.en"  # Optimized for speed & accuracy on RTX 3050
+# Default local LLM for Ollama
+DEFAULT_OLLAMA_MODEL = "llama3.2"

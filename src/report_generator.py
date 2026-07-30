@@ -1,4 +1,3 @@
-# src/report_generator.py
 import datetime
 import pytz
 import json
@@ -8,7 +7,7 @@ class AIReporter:
     def __init__(self, model_name="llama3.2"):
         self.model_name = model_name
 
-    def generate_report(self, transcript_text, vision_metrics, start_time_utc=None, duration_seconds=1800):
+    def generate_report(self, transcript_text, vision_metrics, syllabus_text="", start_time_utc=None, duration_seconds=1800):
         ist = pytz.timezone('Asia/Kolkata')
         if start_time_utc is None:
             start_time_ist = datetime.datetime.now(ist)
@@ -26,7 +25,10 @@ class AIReporter:
         if not transcript_text or len(transcript_text.strip()) < 10:
             transcript_text = "No intelligible speech was detected in this video file."
 
-        # Define JSON Schema to force Ollama to return valid structural JSON
+        syllabus_prompt_part = ""
+        if syllabus_text:
+            syllabus_prompt_part = f"\nREFERENCE SYLLABUS / PPT SLIDES:\n\"{syllabus_text[:4000]}\"\n"
+
         json_schema = {
             "type": "object",
             "properties": {
@@ -37,6 +39,9 @@ class AIReporter:
                 "technical_relevance_score": {"type": "number"},
                 "technical_coverage_feedback": {"type": "string"},
                 "pedagogical_effectiveness": {"type": "string"},
+                "syllabus_coverage_pct": {"type": "integer"},
+                "missing_syllabus_topics": {"type": "string"},
+                "out_of_syllabus_topics": {"type": "string"},
                 "class_summary": {"type": "string"},
                 "key_notes": {"type": "string"}
             },
@@ -44,28 +49,35 @@ class AIReporter:
                 "english_usage_pct", "other_language_pct", "english_comm_score",
                 "english_comm_feedback", "technical_relevance_score",
                 "technical_coverage_feedback", "pedagogical_effectiveness",
-                "class_summary", "key_notes"
-            ],
-            "technical_relevance_score": {
-    "type": "number",
-    "description": "Score between 0.0 and 10.0 evaluating technical depth."
-}
+                "syllabus_coverage_pct", "missing_syllabus_topics",
+                "out_of_syllabus_topics", "class_summary", "key_notes"
+            ]
         }
 
         prompt = f"""
-You are an expert faculty evaluation AI analyzing a classroom lecture transcript.
+You are an uncompromising academic audit assistant. 
+Compare the provided Lecture Transcript against the Reference Syllabus/PPT text.
 
-TRANSCRIPT:
-"{transcript_text}"
+CRITICAL DIRECTIVES:
+1. First, check subject-matter alignment. If the lecture covers Physics/Forces and the reference PPT is about an unrelated topic, the coverage score MUST BE 0%.
+2. Do NOT award points for matching generic words like "Introduction", "Overview", "Part 1", or "Slide".
 
-BOARD METRICS:
-- Visual Board Snapshots Extracted: {boards_count}
+Syllabus Content:
+\"\"\"{syllabus_text[:2000]}\"\"\"
 
-Analyze the transcript and evaluate the lecturer's performance. Return valid scores, communication feedback, bullet points for class summary, and key notes.
+Lecture Transcript:
+\"\"\"{transcript_text[:2000]}\"\"\"
+
+Return ONLY valid JSON:
+{{
+    "coverage_score": <integer 0-100>,
+    "reasoning": "<explanation>",
+    "matched_topics": [],
+    "missing_topics": []
+}}
 """
 
         try:
-            # Force Ollama to structure its response according to JSON Schema
             response = ollama.chat(
                 model=self.model_name,
                 messages=[{"role": "user", "content": prompt}],
@@ -75,7 +87,6 @@ Analyze the transcript and evaluate the lecturer's performance. Return valid sco
             raw_output = response['message']['content'].strip()
             parsed_metrics = json.loads(raw_output)
             
-            # Inject IST metadata
             parsed_metrics["session_date"] = session_date_str
             parsed_metrics["start_time"] = session_start_str
             parsed_metrics["end_time"] = session_end_str
@@ -85,18 +96,20 @@ Analyze the transcript and evaluate the lecturer's performance. Return valid sco
             return parsed_metrics
 
         except Exception as e:
-            # Print actual error to terminal console for debugging
             print(f"[AIReporter Error] Failed to generate LLM report: {e}")
             
             return {
                 "english_usage_pct": 0,
                 "other_language_pct": 0,
-                "english_comm_score": 0.0,
+                "english_comm_score": 0,
                 "english_comm_feedback": f"⚠️ LLM Processing Error: {e}",
-                "technical_relevance_score": 0.0,
+                "technical_relevance_score": 0,
                 "technical_coverage_feedback": "Unable to evaluate technical content due to model error.",
-                "pedagogical_effectiveness": "Analysis unavailable.",
-                "class_summary": "• Could not generate summary. Check Ollama terminal logs.",
+                "pedagogical_effectiveness": "Interactive Lecture",
+                "syllabus_coverage_pct": 0,
+                "missing_syllabus_topics": "• Analysis unavailable.",
+                "out_of_syllabus_topics": "• None detected.",
+                "class_summary": "• Could not generate summary. Check Ollama logs.",
                 "key_notes": "### Error\nFailed to parse model response.",
                 "session_date": session_date_str,
                 "start_time": session_start_str,
